@@ -19,18 +19,18 @@ Analysis Tasks: Analyze the historical data and determine the key drivers for ad
 
 Predictive: 
 
-Find the missing values. (if any, perform missing value treatment)
-Find outliers (if any, then perform outlier treatment)
-Find the structure of the data set and if required, transform the numeric data type to factor and vice-versa.
-Find whether the data is normally distributed or not. Use the plot to determine the same. 
-Normalize the data if not normally distributed.
-Use variable reduction techniques to identify significant variables.
-Run logistic model to determine the factors that influence the admission process of a student (Drop insignificant variables) 
-Calculate the accuracy of the model and run validation techniques.
-Try other modelling techniques like decision tree and SVM and select a champion model 
-Determine the accuracy rates for each kind of model 
-Select the most accurate model 
-Identify other Machine learning or statistical techniques
+1. Find the missing values. (if any, perform missing value treatment)
+2. Find outliers (if any, then perform outlier treatment)
+3. Find the structure of the data set and if required, transform the numeric data type to factor and vice-versa.
+4. Find whether the data is normally distributed or not. Use the plot to determine the same. 
+5. Normalize the data if not normally distributed.
+6. Use variable reduction techniques to identify significant variables.
+7. Run logistic model to determine the factors that influence the admission process of a student (Drop insignificant variables) 
+8. Calculate the accuracy of the model and run validation techniques.
+9. Try other modelling techniques like decision tree and SVM and select a champion model 
+10. Determine the accuracy rates for each kind of model 
+11. Select the most accurate model 
+12. Identify other Machine learning or statistical techniques
  
 
 Descriptive: 
@@ -41,3 +41,4 @@ GRE	Categorized
 0-440	Low
 440-580	Medium
 580+	High
+ 
