@@ -1,128 +1,133 @@
-#set working directory 
-setwd("E:/simplilearn/R Studio/Project/college addmision")
-getwd()
+#!/usr/bin/env Rscript
 
-#import csv file 
-data1<-read.csv("College_admission.csv")
-View(data1)
-str(data1)
+# College admission classification pipeline
+# Usage: Rscript solve.R [path/to/College_admission.csv] [output_directory]
 
-#find na value if any one is 
-which(complete.cases(data1))
-is.na(data1)
-sum(is.na(data1))
-#there is no missing values in this data
+args <- commandArgs(trailingOnly = TRUE)
+data_path <- if (length(args) >= 1) args[[1]] else "College_admission.csv"
+output_dir <- if (length(args) >= 2) args[[2]] else "outputs"
 
-#find outlers in the data set if any 
-boxplot(data1)
+if (!file.exists(data_path)) {
+  stop(paste0("Dataset not found: '", data_path, "'.\n",
+              "Pass its path explicitly, for example:\n",
+              "  Rscript solve.R data/College_admission.csv"), call. = FALSE)
+}
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-summary(data1)
-IQR_gre=587.7-520
-upfen_gre=220+1.5*IQR_gre
-upfen_gre
+clean_name <- function(x) {
+  x <- tolower(gsub("[^A-Za-z0-9]+", "_", trimws(x)))
+  gsub("^_|_$", "", x)
+}
 
-check<-data1[,-2]
-boxplot(check)
-IQR_gpa=3.390-3.130
-upfen_gpa=2.260+1.5*IQR_gpa
-upfen_gpa
+classification_metrics <- function(actual, predicted) {
+  actual <- factor(actual, levels = c("0", "1"))
+  predicted <- factor(predicted, levels = c("0", "1"))
+  cm <- table(actual = actual, predicted = predicted)
+  tp <- cm["1", "1"]; tn <- cm["0", "0"]
+  fp <- cm["0", "1"]; fn <- cm["1", "0"]
+  divide <- function(a, b) if (b == 0) NA_real_ else a / b
+  c(accuracy = divide(tp + tn, sum(cm)),
+    precision = divide(tp, tp + fp), recall = divide(tp, tp + fn),
+    specificity = divide(tn, tn + fp), f1 = divide(2 * tp, 2 * tp + fp + fn))
+}
 
-# after removing the outliers 
-my_data=subset(data1,admit<=1 & gre>=321.55 & gpa>=2.65 & ses<=3 & Gender_Male<=1 & Race<=3 & rank<=4)
-boxplot(my_data)
+stratified_split <- function(target, train_fraction = 0.75, seed = 123) {
+  set.seed(seed)
+  ids <- unlist(lapply(split(seq_along(target), target), function(x) {
+    sample(x, max(1, floor(length(x) * train_fraction)))
+  }))
+  sort(unique(ids))
+}
 
-##find the structure of the my_data
-str(my_data)
-class(my_data$gpa)
-#no need to change the structure of the data 
+raw_data <- read.csv(data_path, stringsAsFactors = FALSE, check.names = FALSE)
+names(raw_data) <- clean_name(names(raw_data))
+if ("gendermale" %in% names(raw_data)) names(raw_data)[names(raw_data) == "gendermale"] <- "gender_male"
+if ("gender" %in% names(raw_data)) names(raw_data)[names(raw_data) == "gender"] <- "gender_male"
 
-plot(my_data)
-summary(my_data)
+required <- c("admit", "gre", "gpa", "ses", "gender_male", "race", "rank")
+missing_columns <- setdiff(required, names(raw_data))
+if (length(missing_columns)) {
+  stop(paste("Missing required column(s):", paste(missing_columns, collapse = ", ")), call. = FALSE)
+}
 
-##spliting the data into the test and training set
-#install.packages("caTools")
-library(caTools)
-set.seed(123)
-split = sample.split(my_data$gpa, SplitRatio = 0.75)
-training_set = subset(my_data, split == TRUE)
-test_set = subset(my_data, split == FALSE)
+data <- raw_data[required]
+for (column in required) data[[column]] <- suppressWarnings(as.numeric(data[[column]]))
+if (any(!is.na(data$admit) & !data$admit %in% c(0, 1))) {
+  stop("'admit' must contain only 0 and 1.", call. = FALSE)
+}
 
+missing_before <- colSums(is.na(data))
+data <- data[complete.cases(data), , drop = FALSE]
+if (nrow(data) < 20) stop("At least 20 complete rows are required.", call. = FALSE)
+if (length(unique(data$admit)) < 2) stop("'admit' must contain both classes.", call. = FALSE)
 
-# Feature Scaling
-training_set[-3] = scale(training_set[-3])
-test_set[-3] = scale(test_set[-3])
+data$admit <- factor(data$admit, levels = c(0, 1))
+for (column in c("ses", "gender_male", "race", "rank")) data[[column]] <- factor(data[[column]])
 
-# Fitting Kernel SVM to the Training set
-# install.packages('e1071')
-library(e1071)
-classifier = svm(formula = gpa ~ .,
-                 data = training_set,
-                 type = 'C-classification',
-                 kernel = 'radial')
+train_ids <- stratified_split(data$admit)
+train <- data[train_ids, , drop = FALSE]
+test <- data[-train_ids, , drop = FALSE]
+if (!nrow(test)) stop("The test split is empty; provide more observations.", call. = FALSE)
 
-# Fitting Decision Tree Regression to the dataset
-# install.packages('rpart')
-library(rpart)
-regressor = rpart(formula = gpa ~ .,
-                  data = my_data,
-                  control = rpart.control(minsplit = 1))
+results <- list()
+predictions <- data.frame(actual = test$admit)
 
-# Predicting a new result with Decision Tree Regression
-y_pred = predict(regressor, data.frame(Level = 6.5))
+logistic_model <- glm(admit ~ ., data = train, family = binomial())
+logistic_probability <- predict(logistic_model, newdata = test, type = "response")
+logistic_prediction <- factor(ifelse(logistic_probability >= 0.5, 1, 0), levels = c(0, 1))
+results$logistic_regression <- classification_metrics(test$admit, logistic_prediction)
+predictions$logistic_probability <- logistic_probability
+predictions$logistic_prediction <- logistic_prediction
+saveRDS(logistic_model, file.path(output_dir, "logistic_model.rds"))
 
+if (requireNamespace("rpart", quietly = TRUE)) {
+  tree_model <- rpart::rpart(admit ~ ., data = train, method = "class")
+  tree_prediction <- predict(tree_model, newdata = test, type = "class")
+  results$decision_tree <- classification_metrics(test$admit, tree_prediction)
+  predictions$tree_prediction <- tree_prediction
+  saveRDS(tree_model, file.path(output_dir, "decision_tree_model.rds"))
+} else message("Package 'rpart' is not installed; skipping the decision tree.")
 
-# Visualising the Decision Tree Regression results (higher resolution)
-# install.packages('ggplot2')
-library(ggplot2)
-x_grid = seq(min(my_data$gre), max(my_data$gpa), 0.01)
-ggplot() +
-  geom_point(aes(x = my_data$gre, y = my_data$gpa),
-             colour = 'red') +
-  geom_line(aes(x = x_grid, y = predict(regressor, newdata = data.frame(Level = x_grid))),
-            colour = 'blue') +
-  ggtitle('Truth or Bluff (Decision Tree Regression)') +
-  xlab('gre') +
-  ylab('gpa')
+if (requireNamespace("e1071", quietly = TRUE)) {
+  svm_model <- e1071::svm(admit ~ ., data = train, kernel = "radial", scale = TRUE)
+  svm_prediction <- predict(svm_model, newdata = test)
+  results$svm <- classification_metrics(test$admit, svm_prediction)
+  predictions$svm_prediction <- svm_prediction
+  saveRDS(svm_model, file.path(output_dir, "svm_model.rds"))
+} else message("Package 'e1071' is not installed; skipping SVM.")
 
-plot(regressor)
+metrics <- do.call(rbind, results)
+metrics <- data.frame(model = rownames(metrics), metrics, row.names = NULL, check.names = FALSE)
+metrics <- metrics[order(metrics$accuracy, decreasing = TRUE), ]
+write.csv(metrics, file.path(output_dir, "model_metrics.csv"), row.names = FALSE)
+write.csv(predictions, file.path(output_dir, "test_predictions.csv"), row.names = FALSE)
 
+capture.output(list(input_rows = nrow(raw_data), complete_rows = nrow(data),
+                    missing_values_by_column = missing_before,
+                    training_rows = nrow(train), test_rows = nrow(test),
+                    admission_rate = mean(as.numeric(as.character(data$admit))),
+                    numeric_summary = summary(data[c("gre", "gpa")])),
+               file = file.path(output_dir, "data_summary.txt"))
 
-# Fitting SVR to the dataset
-# install.packages('e1071')
-library(e1071)
-regressor = svm(formula = gpa ~ .,
-                data = my_data,
-                type = 'eps-regression',
-                kernel = 'radial')
+png(file.path(output_dir, "admission_by_gpa.png"), width = 1200, height = 800, res = 140)
+boxplot(gpa ~ admit, data = data, col = c("#94A3B8", "#2563EB"),
+        xlab = "Admission outcome (0 = no, 1 = yes)", ylab = "GPA",
+        main = "GPA distribution by admission outcome")
+dev.off()
 
-# Predicting a new result
-y_pred = predict(regressor, data.frame(my_data,Level = 6.5))
+gre_group <- cut(data$gre, breaks = c(-Inf, 440, 580, Inf),
+                 labels = c("Low (<440)", "Medium (440-580)", "High (>580)"))
+admission_by_gre <- aggregate(as.numeric(as.character(data$admit)),
+                              by = list(gre_category = gre_group), FUN = mean)
+names(admission_by_gre)[2] <- "admission_rate"
+write.csv(admission_by_gre, file.path(output_dir, "admission_by_gre.csv"), row.names = FALSE)
 
+png(file.path(output_dir, "admission_rate_by_gre.png"), width = 1200, height = 800, res = 140)
+barplot(admission_by_gre$admission_rate * 100, names.arg = admission_by_gre$gre_category,
+        col = c("#94A3B8", "#60A5FA", "#2563EB"), ylim = c(0, 100),
+        ylab = "Admission rate (%)", xlab = "GRE category",
+        main = "Admission rate by GRE category")
+dev.off()
 
-# Visualising the SVR results
-# install.packages('ggplot2')
-library(ggplot2)
-ggplot() +
-  geom_point(aes(x = my_data$gre, y = my_data$gpa),
-             colour = 'red') +
-  geom_line(aes(x = my_data$gre, y = predict(regressor, newdata = my_data)),
-            colour = 'blue') +
-  ggtitle('Truth or Bluff (SVR)') +
-  xlab('gre') +
-  ylab('gpa')
-
-
-
-# Visualising the SVR results (for higher resolution and smoother curve)
-# install.packages('ggplot2')
-library(ggplot2)
-x_grid = seq(min(my_data$gre), max(my_data$gre), 0.1)
-ggplot() +
-  geom_point(aes(x = my_data$gre, y = my_data$gpa),
-             colour = 'red') +
-  geom_line(aes(x = x_grid, y = predict(regressor, newdata = data.frame(gre = x_grid))),
-            colour = 'blue') +
-  ggtitle('Truth or Bluff (SVR)') +
-  xlab('gre') +
-  ylab('gpa')
-
+message("Analysis complete. Results written to: ", normalizePath(output_dir))
+print(metrics, row.names = FALSE)

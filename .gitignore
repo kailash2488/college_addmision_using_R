@@ -1,0 +1,8 @@
+data/
+College_admission.csv
+outputs/
+results/
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/

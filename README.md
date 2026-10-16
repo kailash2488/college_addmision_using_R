@@ -1,44 +1,93 @@
-# college_addmision_using_R
-college admission project from simplilearn 
-Background and Objective: 
-Every year thousands of applications are being submitted by international students for admission in colleges of the USA. It becomes an iterative task for the Education Department to know the total number of applications received and then compare that data with the total number of applications successfully accepted and visas processed. Hence to make the entire process easy, the education department in the US analyze the factors that influence the admission of a student into colleges. The objective of this exercise is to analyse the same.
-Domain: Education
+# College Admission Prediction in R
 
-Dataset Description:
+An end-to-end classification project that explores factors associated with US college admission and compares multiple machine-learning models on a consistent train/test split.
 
-Attribute	Description
-GRE	Graduate Record Exam Scores
-GPA	Grade Point Average
-Rank	It refers to the prestige of the undergraduate institution.
-The variable rank takes on the values 1 through 4. Institutions with a rank of 1 have the highest prestige, while those with a rank of 4 have the lowest.
-Admit	It is a response variable; admit/don’t admit is a binary variable where 1 indicates that student is admitted and 0 indicates that student is not admitted. 
-SES	SES refers to socioeconomic status: 1 - low, 2 - medium, 3 - high.
-Gender_male	Gender_male (0, 1) = 0 -> Female, 1 -> Male
-Race	Race – 1, 2, and 3 represent Hispanic, Asian, and African-American 
-Analysis Tasks: Analyze the historical data and determine the key drivers for admission.
+> **Project status:** the analysis code is repaired and portable. The original `College_admission.csv` is not included in this repository, so add the dataset locally before running it. No performance scores are claimed until they can be reproduced from that source data.
 
-Predictive: 
+## What this project demonstrates
 
-1. Find the missing values. (if any, perform missing value treatment)
-2. Find outliers (if any, then perform outlier treatment)
-3. Find the structure of the data set and if required, transform the numeric data type to factor and vice-versa.
-4. Find whether the data is normally distributed or not. Use the plot to determine the same. 
-5. Normalize the data if not normally distributed.
-6. Use variable reduction techniques to identify significant variables.
-7. Run logistic model to determine the factors that influence the admission process of a student (Drop insignificant variables) 
-8. Calculate the accuracy of the model and run validation techniques.
-9. Try other modelling techniques like decision tree and SVM and select a champion model 
-10. Determine the accuracy rates for each kind of model 
-11. Select the most accurate model 
-12. Identify other Machine learning or statistical techniques
- 
+- Data validation, missing-value reporting, and type conversion
+- Exploratory analysis of GRE, GPA, and admission outcomes
+- Reproducible, stratified training/test sampling
+- Logistic regression, decision tree, and radial SVM comparison
+- Accuracy, precision, recall, specificity, and F1 evaluation
+- Exported reports, plots, predictions, and trained models
 
-Descriptive: 
-Categorize the average of grade point into High, Medium, and Low (with admission probability percentages) and plot it on a point chart.  
-Cross grid for admission variables with GRE Categorization is shown below:
+## Dataset
 
-GRE	Categorized
-0-440	Low
-440-580	Medium
-580+	High
- 
+The script expects these fields. Column names are normalized to lowercase, so common capitalization differences are accepted.
+
+| Column | Meaning |
+| --- | --- |
+| `admit` | Binary outcome: `1` admitted, `0` not admitted |
+| `gre` | Graduate Record Examination score |
+| `gpa` | Grade point average |
+| `ses` | Socioeconomic status: 1 low, 2 medium, 3 high |
+| `gender_male` | Gender indicator: 1 male, 0 female |
+| `race` | Encoded race category from the coursework dataset |
+| `rank` | Institution prestige: 1 highest, 4 lowest |
+
+Place an appropriately licensed copy at `data/College_admission.csv`, or pass another path. Because `race` and `gender_male` are sensitive attributes, treat this as an educational analysis—not a production admissions system.
+
+## Run the analysis
+
+Requirements: R 4.1+, plus `rpart` and `e1071` for all three models.
+
+```r
+install.packages(c("rpart", "e1071"))
+```
+
+```bash
+Rscript solve.R data/College_admission.csv
+```
+
+Optionally choose another results directory:
+
+```bash
+Rscript solve.R path/to/College_admission.csv results
+```
+
+Logistic regression and reporting use base R. If an optional package is unavailable, its model is skipped with a clear message.
+
+## Generated outputs
+
+| File | Description |
+| --- | --- |
+| `model_metrics.csv` | Classification metrics ranked by accuracy |
+| `test_predictions.csv` | Actual labels and per-model predictions |
+| `data_summary.txt` | Row counts, missing values, admission rate, and summary |
+| `admission_by_gre.csv` | Admission rate for low, medium, and high GRE groups |
+| `admission_by_gpa.png` | GPA distribution by admission outcome |
+| `admission_rate_by_gre.png` | Admission percentage across GRE categories |
+| `*_model.rds` | Saved fitted models |
+
+## Methodology
+
+1. Normalize and validate the input schema.
+2. Convert invalid numeric values to missing and report them.
+3. Use complete cases and record how many observations remain.
+4. Treat SES, gender, race, and rank as categorical predictors.
+5. Create a reproducible 75/25 stratified split (`set.seed(123)`).
+6. Train available classifiers on identical training rows.
+7. Evaluate every model against the same held-out test set.
+
+Outliers are retained. Automatically deleting legitimate high or low scores can bias a small admissions dataset; diagnostics and domain knowledge should guide future treatment.
+
+## Repository layout
+
+```text
+.
+├── solve.R                 # Reproducible analysis pipeline
+├── README.md               # Project documentation
+├── AfterOutliears.png      # Historical coursework screenshot
+├── GpaOutliear.png         # Historical coursework screenshot
+└── WithOutliears.png       # Historical coursework screenshot
+```
+
+## Known limitation
+
+The repository cannot reproduce final metrics by itself because the source CSV is missing. Once it is added, run the command above and publish the generated charts and metrics here.
+
+## License
+
+No license has been specified. Add one before distributing or reusing the code publicly.
